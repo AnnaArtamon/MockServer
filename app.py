@@ -1,7 +1,7 @@
 from flask import Flask, request
 import json
-import xml.etree.ElementTree as ET
 from datetime import datetime
+from reusable_methods import parse_request_body, make_response
 
 app = Flask(__name__)
 
@@ -10,41 +10,34 @@ app = Flask(__name__)
 def catch_all(path):
     if not path and request.path == '/':
         content_type = request.content_type.split(';')[0]
-        if content_type == 'application/json':
-            body = request.json
-        elif content_type == 'application/xml':
-            root = ET.fromstring(request.data)
-            body = {child.tag: child.text for child in root}
+        body = parse_request_body(content_type, request.data)
+        if body:
+            print(f'Received request with no endpoint specified')
+            print(f'Request data: {body}')
+            return '', 200
         else:
-            body = request.data.decode('utf-8')
-        print(f'Received request with no endpoint specified')
-        print(f'Request data: {body}')
-        return '', 200
+            return make_response({'error_message': 'Invalid request body'}, 400)
 
     if path == 'orders' and request.method == 'POST':
         content_type = request.content_type.split(';')[0]
-        if content_type == 'application/json':
-            body = request.json
-            order_id = body.get('order_id')
-        elif content_type == 'application/xml':
-            root = ET.fromstring(request.data)
-            body = {child.tag: child.text for child in root}
-            order_id = int(body.get('order_id'))
+        body = parse_request_body(content_type, request.data)
+        if isinstance(body, tuple):
+            error_message, status_code = body
+            return error_message, status_code
+        external_id = body[0].get('external_id')
+        if external_id is None:
+            return make_response({'error_message': 'Missing external_id in request body'}, 400)
+        if int(external_id) % 2 == 0:
+            response = {'accepted': [external_id], 'rejected': []}
         else:
-            body = request.form
-            order_id = int(body.get('order_id'))
-        if order_id is None:
-            return 'Missing order_id in request body', 400
-        if order_id % 2 == 0:
-            response = {'accepted': [order_id], 'rejected': []}
-        else:
-            response = {'accepted': [], 'rejected': [order_id]}
+            response = {'accepted': [], 'rejected': [external_id]}
         return json.dumps(response), 200
+
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(timestamp)
     print(f'Received request with URI: {request.url}')
     print(f'Request data: {request.data.decode()}')
-    return 'Invalid endpoint', 404
+    return make_response({'error_message': 'Invalid endpoint'}, 404)
 
 if __name__ == '__main__':
     app.run()
