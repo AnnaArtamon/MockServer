@@ -1,11 +1,16 @@
-from flask import Flask, request
+from flask import Flask, request, Response
 import json
 from datetime import datetime
-from reusable_methods import parse_request_body, make_response
+from reusable_methods import parse_request_body, make_response, make_tasks_filter_response
 from flask_cors import CORS
+from uuid import uuid4
+import io
 
 app = Flask(__name__)
 CORS(app)
+
+task_guid = str(uuid4())
+
 @app.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'PUT', 'DELETE'])
 @app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def catch_all(path):
@@ -39,6 +44,22 @@ def catch_all(path):
     print(f'Received request with URI: {request.url}')
     print(f'Request data: {request.data.decode()}')
     return make_response({'error_message': 'Invalid endpoint'}, 404)
+
+@app.route('/api/v1/export/tasks/sgtins', methods=['POST'])
+def export_tasks():
+    response = {'id': task_guid}
+    return json.dumps(response), 200
+
+@app.route('/api/v1/export/tasks/filter', methods=['POST'])
+def export_tasks_filter():
+    response = make_tasks_filter_response(task_guid)
+    return response, 200
+
+@app.route('/api/v1/export/tasks/<string:some_guid>/result', methods=['GET'])
+def export_tasks_result(some_guid):
+    with open('result.txt', 'rb') as file:
+        binary_file = file.read()
+    return Response(binary_file, mimetype='application/octet-stream', headers={'Content-Disposition': 'attachment', 'filename': 'result.txt'})
 
 if __name__ == '__main__':
     context = ('cert.pem', 'key.pem') # replace with the paths to your certificate and private key
