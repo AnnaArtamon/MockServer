@@ -45,8 +45,8 @@ def catch_all(path):
     print(f'Request data: {request.data.decode()}')
     return make_response({'error_message': 'Invalid endpoint'}, 404)
 
-@app.route('/api/v1/export/tasks/sgtins', methods=['POST'])
-def export_tasks():
+@app.route('/api/v1/export/tasks/sgtins<string:linefeed>', methods=['POST'])
+def export_tasks(linefeed):
     response = {'id': task_guid}
     return json.dumps(response), 200
 
